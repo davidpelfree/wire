@@ -56,10 +56,10 @@ public class WireCompilerErrorTest {
     }
 
     @Override
-    public JavaWriter getJavaWriter(String javaOut, String javaPackage, String className)
+    public JavaWriter getJavaWriter(OutputArtifact outputArtifact)
         throws IOException {
       StringWriter writer = new StringWriter();
-      writers.put(javaPackage + "." + className, writer);
+      writers.put(outputArtifact.getFullClassName(), writer);
       return new JavaWriter(writer);
     }
 

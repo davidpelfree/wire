@@ -17,6 +17,9 @@ package com.squareup.wire;
 
 import com.squareup.javawriter.JavaWriter;
 import com.squareup.protoparser.Service;
+import com.squareup.wire.logger.StringWireLogger;
+import com.squareup.wire.logger.WireLogger;
+import com.squareup.wire.logger.WireLoggerFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -53,6 +56,7 @@ public class WireCompilerTest {
 
   @After public void tearDown() {
     cleanupAndDelete(testDir);
+    WireLoggerFactory.reset();
   }
 
   private void cleanupAndDelete(File dir) {
@@ -138,18 +142,29 @@ public class WireCompilerTest {
 
   private void testProtoWithRoots(String[] sources, String roots, String[] outputs)
       throws Exception {
+    String[] extraArgs = {};
+    this.testProtoWithRoots(sources, roots, outputs, extraArgs);
+  }
+
+  private void testProtoWithRoots(String[] sources, String roots, String[] outputs,
+      String[] extraArgs)
+      throws Exception {
     int numFlags = 4;
-    String[] args = new String[numFlags + sources.length];
-    args[0] = "--proto_path=../wire-runtime/src/test/proto";
-    args[1] = "--java_out=" + testDir.getAbsolutePath();
-    args[2] = "--service_writer=com.squareup.wire.SimpleServiceWriter";
-    args[3] = "--roots=" + roots;
-    System.arraycopy(sources, 0, args, numFlags, sources.length);
+    String[] args = new String[numFlags + sources.length + extraArgs.length];
+    int index = 0;
+    args[index++] = "--proto_path=../wire-runtime/src/test/proto";
+    args[index++] = "--java_out=" + testDir.getAbsolutePath();
+    args[index++] = "--service_writer=com.squareup.wire.SimpleServiceWriter";
+    args[index++] = "--roots=" + roots;
+    for (int i = 0; i < extraArgs.length; i++) {
+      args[index++] = extraArgs[i];
+    }
+    System.arraycopy(sources, 0, args, index, sources.length);
 
     WireCompiler.main(args);
 
     List<String> filesAfter = getAllFiles(testDir);
-    assertEquals(outputs.length, filesAfter.size());
+    assertEquals("Wrong number of files written", outputs.length, filesAfter.size());
 
     for (String output : outputs) {
       assertFilesMatch(testDir, output);
@@ -585,6 +600,28 @@ public class WireCompilerTest {
     };
     String roots = "squareup.wire.protos.roots.TheService";
     testProtoWithRoots(sources, roots, outputs);
+  }
+
+  @Test public void testDryRun() throws Exception {
+    StringWireLogger logger = new StringWireLogger();
+    WireLoggerFactory.set(logger);
+    String[] sources = {
+        "service_root.proto"
+    };
+
+    String[] outputs = { };
+    String roots = "squareup.wire.protos.roots.TheService";
+    // When running with the --dry-run flag and --quiet, only the names of the output
+    // files should be printed to the log
+    String[] extraArgs = {
+        "--dry-run",
+        "--quiet"
+    };
+    testProtoWithRoots(sources, roots, outputs, extraArgs);
+    assertEquals(testDir.getAbsolutePath().toString() + "/com/squareup/wire/protos/roots/TheRequest.java\n"
+            + testDir.getAbsolutePath().toString() + "/com/squareup/wire/protos/roots/TheResponse.java\n"
+            + testDir.getAbsolutePath().toString() + "/com/squareup/wire/protos/roots/TheService.java\n",
+        logger.getLog());
   }
 
   @Test public void sanitizeJavadocStripsTrailingWhitespace() {

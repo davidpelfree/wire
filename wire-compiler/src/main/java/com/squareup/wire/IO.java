@@ -5,6 +5,8 @@ import com.squareup.javawriter.JavaWriter;
 import com.squareup.protoparser.ProtoFile;
 import com.squareup.protoparser.ProtoSchemaParser;
 
+import com.squareup.wire.logger.WireLogger;
+import com.squareup.wire.logger.WireLoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -29,13 +31,15 @@ interface IO {
    *   <output directory>/<java package converted to slashed form>/<className>.java
    * }</pre>
    */
-  JavaWriter getJavaWriter(String outputDirectory, String javaPackage, String className)
+  JavaWriter getJavaWriter(OutputArtifact outputArtifact)
       throws IOException;
+
 
   /**
    * Concrete implementation of the IO interface that proxies to the file system.
    */
   class FileIO implements IO {
+    private static final WireLogger log = WireLoggerFactory.get();
     private static final Charset UTF_8 = Charset.forName("UTF8");
 
     @Override
@@ -45,18 +49,16 @@ interface IO {
     }
 
     @Override
-    public JavaWriter getJavaWriter(String outputDirectory, String javaPackage, String className)
+    public JavaWriter getJavaWriter(OutputArtifact artifact)
         throws IOException {
-      String directory = outputDirectory + File.separator
-          + javaPackage.replace(".", File.separator);
-      boolean created = new File(directory).mkdirs();
+      File directory = artifact.getArtifactDir();
+      boolean created = directory.mkdirs();
       if (created) {
-        System.out.println("Created output directory " + directory);
+        log.info("Created output directory " + directory);
       }
 
-      String fileName = directory + File.separator + className + ".java";
-      System.out.println("Writing generated code to " + fileName);
-      return new JavaWriter(new OutputStreamWriter(new FileOutputStream(fileName), UTF_8));
+      File outputFile = artifact.getArtifactFile();
+      return new JavaWriter(new OutputStreamWriter(new FileOutputStream(outputFile), UTF_8));
     }
   }
 }
